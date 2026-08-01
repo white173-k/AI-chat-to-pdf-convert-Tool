@@ -8,16 +8,18 @@ export async function getBrowser(): Promise<Browser> {
   if (!browserInstance || !browserInstance.connected) {
     console.log('[Puppeteer] Launching browser instance...');
 
-    // 1. Check if running inside Vercel or AWS Lambda Serverless environment
+    // 1. Vercel or AWS Lambda Serverless execution environment
     if (process.env.VERCEL || process.env.AWS_EXECUTION_ENV) {
       try {
         console.log('[Puppeteer] Serverless environment detected. Loading @sparticuz/chromium...');
         const chromium = (await import('@sparticuz/chromium')).default;
+        
+        chromium.setGraphicsMode = false;
         const executablePath = await chromium.executablePath();
 
         browserInstance = (await puppeteerCore.launch({
           executablePath,
-          args: chromium.args,
+          args: [...chromium.args, '--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
           headless: chromium.headless === 'shell' ? 'shell' : true,
           defaultViewport: chromium.defaultViewport,
         })) as unknown as Browser;
@@ -25,10 +27,11 @@ export async function getBrowser(): Promise<Browser> {
         return browserInstance;
       } catch (err: any) {
         console.error('[Puppeteer] Error launching @sparticuz/chromium in serverless mode:', err);
+        throw new Error(`Serverless Chromium launch failed: ${err.message || err}`);
       }
     }
 
-    // 2. Local / VPS / Dedicated Server environment fallback
+    // 2. Local development fallback
     const possiblePaths = [
       process.env.PUPPETEER_EXECUTABLE_PATH,
       'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
@@ -45,10 +48,6 @@ export async function getBrowser(): Promise<Browser> {
         executablePath = path;
         break;
       }
-    }
-
-    if (executablePath) {
-      console.log(`[Puppeteer] Using local browser binary at: ${executablePath}`);
     }
 
     browserInstance = (await puppeteer.launch({
