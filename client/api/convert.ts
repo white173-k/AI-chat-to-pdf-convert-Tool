@@ -3,7 +3,6 @@ import { z } from 'zod';
 import { fetchSharedConversation } from '../../server/src/services/fetcherService.js';
 import { convertMarkdownToHtml } from '../../server/src/services/markdownService.js';
 import { renderPdfHtmlTemplate } from '../../server/src/templates/pdfTemplate.js';
-import { generatePdfFromHtml } from '../../server/src/services/pdfService.js';
 import { formatAutoTitle, sanitizeFileName } from '../../server/src/services/titleService.js';
 
 const RequestSchema = z.object({
@@ -57,18 +56,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       parsed.viewMode
     );
 
-    const pdfBuffer = await generatePdfFromHtml(fullHtml, finalTitle, parsed.viewMode);
     const fileName = sanitizeFileName(finalTitle);
 
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(fileName)}"`);
-    res.setHeader('Content-Length', pdfBuffer.length);
-    return res.send(pdfBuffer);
+    return res.status(200).json({
+      success: true,
+      title: finalTitle,
+      fileName,
+      platform: conversation.platform,
+      originalUrl: conversation.originalUrl,
+      messageCount: conversation.messages.length,
+      messages: processedMessages,
+      pdfHtml: fullHtml,
+      theme: parsed.theme,
+      viewMode: parsed.viewMode,
+    });
   } catch (error: any) {
     console.error('[Vercel API /convert Error]:', error.message || error);
     return res.status(400).json({
       success: false,
-      error: error.message || 'An error occurred while generating the PDF.',
+      error: error.message || 'An error occurred while parsing the conversation.',
     });
   }
 }

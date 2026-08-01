@@ -1,7 +1,11 @@
+import html2pdf from 'html2pdf.js';
+
 export type ViewMode = 'desktop' | 'mobile' | 'tablet';
 export type AppTheme = 'dark' | 'light';
 
 export interface PreviewData {
+  success?: boolean;
+  error?: string;
   title: string;
   fileName: string;
   platform: 'chatgpt' | 'gemini' | 'claude' | 'perplexity' | 'grok' | 'deepseek' | 'copilot';
@@ -16,6 +20,10 @@ export interface PreviewData {
   }>;
   theme?: AppTheme;
   viewMode?: ViewMode;
+}
+
+export interface ConvertData extends PreviewData {
+  pdfHtml?: string;
 }
 
 export async function fetchPreview(
@@ -83,46 +91,56 @@ export async function generateAndDownloadPdf(
     throw new Error(`Failed to connect to Vercel API endpoint (${endpoint}). Please try again.`);
   }
 
+  const text = await res.text();
+
   if (!res.ok) {
     let errorMsg = `Server returned HTTP ${res.status}: Failed to generate PDF.`;
     try {
-      const text = await res.text();
-      if (res.status === 404 || text.includes('NOT_FOUND') || text.includes('page could not be found')) {
-        errorMsg = `Vercel API Route /api/convert was not found (404 NOT_FOUND). Please verify Vercel build configuration.`;
-      } else {
-        try {
-          const errJson = JSON.parse(text);
-          if (errJson.error) errorMsg = errJson.error;
-        } catch {
-          if (text && text.length < 200) errorMsg = text;
-        }
-      }
+      const errJson = JSON.parse(text);
+      if (errJson.error) errorMsg = errJson.error;
     } catch {
-      // ignore
+      if (text && text.length < 200) errorMsg = text;
     }
     throw new Error(errorMsg);
   }
 
-  const contentDisposition = res.headers.get('Content-Disposition');
-  let filename = 'AI_Conversation_Notes.pdf';
-
-  if (contentDisposition) {
-    const filenameMatch = contentDisposition.match(/filename\*?=['"]?(?:UTF-8'')?([^;'"\n]*)['"]?/i);
-    if (filenameMatch && filenameMatch[1]) {
-      filename = decodeURIComponent(filenameMatch[1]);
-    }
+  let data: ConvertData;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    throw new Error('Invalid JSON response received from Vercel API during PDF generation.');
   }
 
-  const blob = await res.blob();
-  const downloadUrl = window.URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.style.display = 'none';
-  a.href = downloadUrl;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  window.URL.revokeObjectURL(downloadUrl);
-  a.remove();
+  if (!data.success || !data.pdfHtml) {
+    throw new Error(data.error || 'Failed to generate PDF template.');
+  }
 
-  return filename;
+  // Render client-side vector PDF using html2pdf
+  const container = document.createElement('div');
+  container.style.position = 'absolute';
+  container.style.left = '-9999px';
+  container.style.top = '-9999px';
+  container.style.width = '800px';
+  container.innerHTML = data.pdfHtml;
+  document.body.appendChild(container);
+
+  const fileName = data.fileName ? (data.fileName.endsWith('.pdf') ? data.fileName : `${data.fileName}.pdf`) : 'AI_Conversation_Notes.pdf';
+
+  const marginTuple: [number, number, number, number] = [10, 10, 15, 10];
+
+  const opt = {
+    margin: marginTuple,
+    filename: fileName,
+    image: { type: 'jpeg' as const, quality: 0.98 },
+    html2canvas: { scale: 2, useCORS: true, logging: false },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const },
+  };
+
+  try {
+    await html2pdf().set(opt).from(container).save();
+  } finally {
+    document.body.removeChild(container);
+  }
+
+  return fileName;
 }
