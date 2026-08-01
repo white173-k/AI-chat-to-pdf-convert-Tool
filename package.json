@@ -9,7 +9,7 @@
     "dev": "concurrently \"npm run dev --workspace=client\" \"npm run dev --workspace=server\"",
     "build:client": "npm run build --workspace=client",
     "build:server": "npm run build --workspace=server",
-    "build": "npm run build:client && npm run build:server",
+    "build": "npm run build:client && node -e \"require('fs').cpSync('client/dist', 'dist', {recursive: true})\"",
     "start": "npm run start --workspace=server"
   },
   "dependencies": {
