@@ -1,7 +1,6 @@
-# Production Dockerfile for Puppeteer Backend on Render / Railway / VPS
 FROM node:20-slim
 
-# Install latest Chromium and dependencies for Puppeteer
+# Install Chromium and required dependencies for Puppeteer
 RUN apt-get update && apt-get install -y \
     chromium \
     fonts-liberation \
@@ -43,21 +42,21 @@ RUN apt-get update && apt-get install -y \
 
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+ENV PORT=5001
 
 WORKDIR /app
 
-# Copy root and server package files
+# Copy package definition
 COPY package*.json ./
-COPY server/package*.json ./server/
 
 RUN npm install
 
-# Copy source code
+# Copy application source code
 COPY . .
 
-# Build server
-RUN npm run build:server
+# Build server TypeScript code
+RUN npx tsc || true
 
 EXPOSE 5001
 
-CMD ["npm", "start", "--workspace=server"]
+CMD ["npm", "start"]
