@@ -18,22 +18,13 @@ export interface PreviewData {
   viewMode?: ViewMode;
 }
 
-const getApiBaseUrl = (): string => {
-  const envUrl = (import.meta as any).env?.VITE_API_URL;
-  if (envUrl && typeof envUrl === 'string' && envUrl.trim()) {
-    return envUrl.trim().replace(/\/$/, '');
-  }
-  return ''; // fallback to relative path /api for local dev proxy
-};
-
 export async function fetchPreview(
   url: string,
   customTitle?: string,
   theme: AppTheme = 'dark',
   viewMode: ViewMode = 'desktop'
 ): Promise<PreviewData> {
-  const baseUrl = getApiBaseUrl();
-  const endpoint = `${baseUrl}/api/preview`;
+  const endpoint = '/api/preview';
 
   let res: Response;
   try {
@@ -43,18 +34,14 @@ export async function fetchPreview(
       body: JSON.stringify({ url, customTitle, theme, viewMode }),
     });
   } catch (networkErr: any) {
-    throw new Error(
-      `Backend API unreachable at '${endpoint}'. If deployed on Vercel, please set VITE_API_URL in Vercel Settings -> Environment Variables pointing to your backend URL (e.g. Render/Railway).`
-    );
+    throw new Error(`Failed to connect to Vercel API endpoint (${endpoint}). Please try again.`);
   }
 
   const text = await res.text();
 
   if (!res.ok) {
     if (res.status === 404 || text.includes('NOT_FOUND') || text.includes('page could not be found')) {
-      throw new Error(
-        `Backend API endpoint not found (404 NOT_FOUND). On Vercel, please add VITE_API_URL in Vercel Dashboard -> Settings -> Environment Variables (e.g. https://your-backend.onrender.com) and click Redeploy.`
-      );
+      throw new Error(`Vercel API Route /api/preview was not found (404 NOT_FOUND). Please verify Vercel build configuration.`);
     }
 
     try {
@@ -63,7 +50,7 @@ export async function fetchPreview(
     } catch {
       if (text && text.length < 200) throw new Error(text);
     }
-    throw new Error(`Server error (${res.status}): Failed to fetch preview.`);
+    throw new Error(`Server error (${res.status}): Failed to fetch conversation preview.`);
   }
 
   try {
@@ -73,7 +60,7 @@ export async function fetchPreview(
     }
     return data;
   } catch {
-    throw new Error(`Invalid response from API. Please verify VITE_API_URL environment variable.`);
+    throw new Error('Invalid JSON response received from Vercel API.');
   }
 }
 
@@ -83,8 +70,7 @@ export async function generateAndDownloadPdf(
   theme: AppTheme = 'dark',
   viewMode: ViewMode = 'desktop'
 ): Promise<string> {
-  const baseUrl = getApiBaseUrl();
-  const endpoint = `${baseUrl}/api/convert`;
+  const endpoint = '/api/convert';
 
   let res: Response;
   try {
@@ -94,9 +80,7 @@ export async function generateAndDownloadPdf(
       body: JSON.stringify({ url, customTitle, theme, viewMode }),
     });
   } catch (networkErr: any) {
-    throw new Error(
-      `Backend API unreachable at '${endpoint}'. If deployed on Vercel, please set VITE_API_URL in Vercel Settings -> Environment Variables pointing to your backend URL (e.g. Render/Railway).`
-    );
+    throw new Error(`Failed to connect to Vercel API endpoint (${endpoint}). Please try again.`);
   }
 
   if (!res.ok) {
@@ -104,7 +88,7 @@ export async function generateAndDownloadPdf(
     try {
       const text = await res.text();
       if (res.status === 404 || text.includes('NOT_FOUND') || text.includes('page could not be found')) {
-        errorMsg = `Backend API endpoint not found (404 NOT_FOUND). On Vercel, please add VITE_API_URL in Vercel Dashboard -> Settings -> Environment Variables (e.g. https://your-backend.onrender.com) and click Redeploy.`;
+        errorMsg = `Vercel API Route /api/convert was not found (404 NOT_FOUND). Please verify Vercel build configuration.`;
       } else {
         try {
           const errJson = JSON.parse(text);
