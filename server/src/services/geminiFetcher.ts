@@ -1,5 +1,4 @@
 import * as cheerio from 'cheerio';
-import { getBrowser } from '../utils/browserPool.js';
 import { ChatMessage, SharedConversation } from '../types.js';
 
 export async function fetchGeminiConversation(shareUrl: string, shareId: string): Promise<SharedConversation> {
@@ -45,83 +44,63 @@ export async function fetchGeminiConversation(shareUrl: string, shareId: string)
       }
     }
   } catch (err) {
-    console.log('[Gemini Fetcher] Lightweight HTTP fetch failed, switching to Puppeteer...');
+    console.log('[Gemini Fetcher] Lightweight HTTP fetch failed, trying dynamic Puppeteer fallback...');
   }
-
-  console.log(`[Gemini Fetcher] Running Puppeteer fallback for ${shareUrl}`);
-  const browser = await getBrowser();
-  const page = await browser.newPage();
 
   try {
-    await page.setUserAgent(
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
-    );
+    console.log(`[Gemini Fetcher] Running dynamic Puppeteer fallback for ${shareUrl}`);
+    const { getBrowser } = await import('../utils/browserPool.js');
+    const browser = await getBrowser();
+    const page = await browser.newPage();
 
-    await page.goto(shareUrl, { waitUntil: 'networkidle2' as const, timeout: 35000 });
-    await new Promise((resolve) => setTimeout(resolve, 3000));
+    try {
+      await page.setUserAgent(
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
+      );
+      await page.goto(shareUrl, { waitUntil: 'networkidle2' as const, timeout: 25000 });
+      await new Promise((resolve) => setTimeout(resolve, 2500));
 
-    const result = await page.evaluate(() => {
-      const title = document.title.replace(' - Gemini', '').trim() || 'Gemini Shared Conversation';
+      const result = await page.evaluate(() => {
+        const title = document.title.replace(' - Gemini', '').trim() || 'Gemini Shared Conversation';
+        const messages: { role: 'user' | 'assistant'; content: string }[] = [];
+        const turns = Array.from(document.querySelectorAll('conversation-turn, .conversation-turn, .turn'));
 
-      const messages: { role: 'user' | 'assistant'; content: string }[] = [];
-
-      const userQueries = Array.from(document.querySelectorAll('.user-query, [data-test-id="user-query"], .query-text'));
-      const responses = Array.from(document.querySelectorAll('.model-response-text, message-content, .markdown'));
-
-      const turns = Array.from(document.querySelectorAll('conversation-turn, .conversation-turn, .turn'));
-
-      if (turns.length > 0) {
-        turns.forEach((turn) => {
-          const isUser = turn.querySelector('.user-query, [data-test-id="user-query"]');
-          const text = (turn as HTMLElement).innerText || turn.textContent || '';
-          if (text.trim()) {
-            messages.push({
-              role: isUser ? 'user' : 'assistant',
-              content: text.trim(),
-            });
-          }
-        });
-      } else {
-        const maxLen = Math.max(userQueries.length, responses.length);
-        for (let i = 0; i < maxLen; i++) {
-          if (userQueries[i]) {
-            messages.push({ role: 'user', content: (userQueries[i] as HTMLElement).innerText.trim() });
-          }
-          if (responses[i]) {
-            messages.push({ role: 'assistant', content: (responses[i] as HTMLElement).innerText.trim() });
-          }
+        if (turns.length > 0) {
+          turns.forEach((turn) => {
+            const isUser = turn.querySelector('.user-query, [data-test-id="user-query"]');
+            const text = (turn as HTMLElement).innerText || turn.textContent || '';
+            if (text.trim()) {
+              messages.push({
+                role: isUser ? 'user' : 'assistant',
+                content: text.trim(),
+              });
+            }
+          });
         }
+
+        return { title, messages };
+      });
+
+      if (result.messages.length > 0) {
+        return {
+          id: shareId,
+          title: result.title,
+          platform: 'gemini',
+          originalUrl: shareUrl,
+          messages: result.messages.map((m, idx) => ({
+            id: `gemini-pup-${idx}`,
+            role: m.role,
+            authorName: m.role === 'user' ? 'User' : 'Gemini',
+            content: m.content,
+          })),
+        };
       }
-
-      if (messages.length === 0) {
-        const main = document.querySelector('main') || document.body;
-        const paragraphs = Array.from(main.querySelectorAll('p, pre, h1, h2, h3'));
-        let combined = paragraphs.map((p) => (p as HTMLElement).innerText.trim()).filter(Boolean).join('\n\n');
-        if (combined) {
-          messages.push({ role: 'assistant', content: combined });
-        }
-      }
-
-      return { title, messages };
-    });
-
-    if (result.messages.length > 0) {
-      return {
-        id: shareId,
-        title: result.title,
-        platform: 'gemini',
-        originalUrl: shareUrl,
-        messages: result.messages.map((m, idx) => ({
-          id: `gemini-pup-${idx}`,
-          role: m.role,
-          authorName: m.role === 'user' ? 'User' : 'Gemini',
-          content: m.content,
-        })),
-      };
+    } finally {
+      await page.close();
     }
-
-    throw new Error('Could not parse conversation content from Gemini share link. The link may be expired or private.');
-  } finally {
-    await page.close();
+  } catch (pupErr) {
+    console.log('[Gemini Fetcher] Dynamic Puppeteer fallback failed or disabled in serverless mode');
   }
+
+  throw new Error('Could not parse conversation content from Gemini share link. The link may be expired or private.');
 }

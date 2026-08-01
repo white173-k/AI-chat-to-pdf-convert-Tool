@@ -1,5 +1,4 @@
 import * as cheerio from 'cheerio';
-import { getBrowser } from '../utils/browserPool.js';
 import { ChatMessage, SharedConversation } from '../types.js';
 
 function parseChatGPTMappingData(data: any, shareId: string, shareUrl: string): SharedConversation | null {
@@ -123,88 +122,44 @@ export async function fetchChatGPTConversation(shareUrl: string, shareId: string
       }
     }
   } catch (htmlErr) {
-    console.log('[ChatGPT Fetcher] HTML page fetch failed, switching to Puppeteer fallback...');
+    console.log('[ChatGPT Fetcher] HTML page fetch failed, switching to dynamic Puppeteer fallback...');
   }
 
-  // Method C: Headless Browser Fallback (Puppeteer + Chromium)
-  console.log(`[ChatGPT Fetcher] Running Puppeteer fallback for ${shareUrl}`);
-  const browser = await getBrowser();
-  const page = await browser.newPage();
-
+  // Method C: Dynamic Headless Browser Fallback (Loaded on-demand only)
   try {
-    await page.setExtraHTTPHeaders({ 'Accept-Language': 'en-US,en;q=0.9' });
-    await page.evaluateOnNewDocument(() => {
-      Object.defineProperty(navigator, 'webdriver', { get: () => false });
-    });
-    await page.setUserAgent(
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
-    );
+    console.log(`[ChatGPT Fetcher] Running dynamic Puppeteer fallback for ${shareUrl}`);
+    const { getBrowser } = await import('../utils/browserPool.js');
+    const browser = await getBrowser();
+    const page = await browser.newPage();
 
-    await page.goto(shareUrl, { waitUntil: 'domcontentloaded' as const, timeout: 25000 });
-    await new Promise((resolve) => setTimeout(resolve, 2500));
+    try {
+      await page.setExtraHTTPHeaders({ 'Accept-Language': 'en-US,en;q=0.9' });
+      await page.evaluateOnNewDocument(() => {
+        Object.defineProperty(navigator, 'webdriver', { get: () => false });
+      });
+      await page.setUserAgent(
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
+      );
 
-    const pageTitle = await page.title();
-    if (pageTitle.includes('Attention Required!') || pageTitle.includes('Just a moment...')) {
-      throw new Error('Cloudflare anti-bot verification was triggered by ChatGPT. Please try again in a few moments.');
-    }
+      await page.goto(shareUrl, { waitUntil: 'domcontentloaded' as const, timeout: 25000 });
+      await new Promise((resolve) => setTimeout(resolve, 2500));
 
-    const extractedData = await page.evaluate(async () => {
-      const w = window as any;
-
-      if (w.__NEXT_DATA__?.props?.pageProps?.serverResponse?.data) {
-        return w.__NEXT_DATA__.props.pageProps.serverResponse.data;
-      }
-
-      if (w.__remixContext?.state?.loaderData) {
-        for (const key of Object.keys(w.__remixContext.state.loaderData)) {
-          const loader = w.__remixContext.state.loaderData[key];
-          if (loader?.serverResponse?.data) return loader.serverResponse.data;
-          if (loader?.sharedConversationResponse) return loader.sharedConversationResponse;
+      const extractedData = await page.evaluate(async () => {
+        const w = window as any;
+        if (w.__NEXT_DATA__?.props?.pageProps?.serverResponse?.data) {
+          return w.__NEXT_DATA__.props.pageProps.serverResponse.data;
         }
-      }
-
-      return null;
-    });
-
-    const puppeteerParsed = parseChatGPTMappingData(extractedData, shareId, shareUrl);
-    if (puppeteerParsed) return puppeteerParsed;
-
-    const domResult = await page.evaluate(() => {
-      const titleEl = document.querySelector('h1') || document.querySelector('title');
-      const title = titleEl ? titleEl.textContent?.replace(' - ChatGPT', '').trim() || 'ChatGPT Shared Conversation' : 'ChatGPT Shared Conversation';
-
-      const articles = Array.from(document.querySelectorAll('article, [data-message-author-role], .conversation-turn'));
-      const messages: { role: 'user' | 'assistant'; content: string }[] = [];
-
-      articles.forEach((art) => {
-        const roleAttr = art.getAttribute('data-message-author-role');
-        const isUser = roleAttr === 'user' || art.querySelector('[data-message-author-role="user"]');
-        const role: 'user' | 'assistant' = isUser ? 'user' : 'assistant';
-        const markdownContainer = art.querySelector('.markdown') || art;
-        const text = (markdownContainer as HTMLElement).innerText || art.textContent || '';
-        if (text.trim()) messages.push({ role, content: text.trim() });
+        return null;
       });
 
-      return { title, messages };
-    });
-
-    if (domResult.messages.length > 0) {
-      return {
-        id: shareId,
-        title: domResult.title,
-        platform: 'chatgpt',
-        originalUrl: shareUrl,
-        messages: domResult.messages.map((m, idx) => ({
-          id: `dom-${idx}`,
-          role: m.role,
-          authorName: m.role === 'user' ? 'User' : 'ChatGPT',
-          content: m.content,
-        })),
-      };
+      const puppeteerParsed = parseChatGPTMappingData(extractedData, shareId, shareUrl);
+      if (puppeteerParsed) return puppeteerParsed;
+    } finally {
+      await page.close();
     }
-
-    throw new Error('Could not parse conversation from shared ChatGPT link. The link may be private or expired.');
-  } finally {
-    await page.close();
+  } catch (pupErr) {
+    console.log('[ChatGPT Fetcher] Puppeteer fallback failed or disabled in serverless mode');
   }
+
+  throw new Error('Could not parse conversation from shared ChatGPT link. The link may be private or expired.');
 }
