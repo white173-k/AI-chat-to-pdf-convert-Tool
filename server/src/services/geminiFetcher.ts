@@ -1,11 +1,10 @@
 import * as cheerio from 'cheerio';
-import { getBrowser } from '../utils/browserPool.js';
-import { ChatMessage, SharedConversation } from '../types.js';
+import { getBrowser } from '../utils/browserPool';
+import { ChatMessage, SharedConversation } from '../types';
 
 export async function fetchGeminiConversation(shareUrl: string, shareId: string): Promise<SharedConversation> {
   console.log(`[Gemini Fetcher] Attempting HTTP fetch for ${shareUrl}`);
 
-  // 1. Try lightweight HTTP GET request
   try {
     const res = await fetch(shareUrl, {
       headers: {
@@ -19,24 +18,8 @@ export async function fetchGeminiConversation(shareUrl: string, shareId: string)
       const html = await res.text();
       const $ = cheerio.load(html);
 
-      // Extract title from meta or title tag
       const pageTitle = $('meta[property="og:title"]').attr('content') || $('title').text() || 'Gemini Shared Conversation';
 
-      // Look for AF_initDataCallback script blocks
-      let extractedMessages: ChatMessage[] = [];
-
-      $('script').each((_, script) => {
-        const text = $(script).html() || '';
-        if (text.includes('AF_initDataCallback')) {
-          // Attempt regex extraction of text sequences
-          const matches = text.match(/"([^"]{10,})"/g);
-          if (matches && matches.length > 5) {
-            // Check if there are distinct prompt-response strings
-          }
-        }
-      });
-
-      // Also check simple element text if SSR rendered
       const turns: ChatMessage[] = [];
       $('.user-query, .model-response, [jsname], conversation-turn').each((idx, el) => {
         const txt = $(el).text().trim();
@@ -65,7 +48,6 @@ export async function fetchGeminiConversation(shareUrl: string, shareId: string)
     console.log('[Gemini Fetcher] Lightweight HTTP fetch failed, switching to Puppeteer...');
   }
 
-  // 2. Puppeteer Fallback (renders full client-side JS DOM)
   console.log(`[Gemini Fetcher] Running Puppeteer fallback for ${shareUrl}`);
   const browser = await getBrowser();
   const page = await browser.newPage();
@@ -81,14 +63,11 @@ export async function fetchGeminiConversation(shareUrl: string, shareId: string)
     const result = await page.evaluate(() => {
       const title = document.title.replace(' - Gemini', '').trim() || 'Gemini Shared Conversation';
 
-      // Scrape conversation turns in DOM
       const messages: { role: 'user' | 'assistant'; content: string }[] = [];
 
-      // Query Gemini UI containers
       const userQueries = Array.from(document.querySelectorAll('.user-query, [data-test-id="user-query"], .query-text'));
       const responses = Array.from(document.querySelectorAll('.model-response-text, message-content, .markdown'));
 
-      // If specific queries found
       const turns = Array.from(document.querySelectorAll('conversation-turn, .conversation-turn, .turn'));
 
       if (turns.length > 0) {
@@ -103,7 +82,6 @@ export async function fetchGeminiConversation(shareUrl: string, shareId: string)
           }
         });
       } else {
-        // Fallback: Pair user queries & model responses
         const maxLen = Math.max(userQueries.length, responses.length);
         for (let i = 0; i < maxLen; i++) {
           if (userQueries[i]) {
@@ -115,7 +93,6 @@ export async function fetchGeminiConversation(shareUrl: string, shareId: string)
         }
       }
 
-      // If still empty, grab all structured paragraphs/articles
       if (messages.length === 0) {
         const main = document.querySelector('main') || document.body;
         const paragraphs = Array.from(main.querySelectorAll('p, pre, h1, h2, h3'));

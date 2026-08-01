@@ -1,4 +1,4 @@
-import { SharedConversation, ChatMessage, AppTheme, ViewMode } from '../types.js';
+import { SharedConversation, ChatMessage, AppTheme, ViewMode } from '../types';
 
 export function renderPdfHtmlTemplate(
   conversation: SharedConversation,
@@ -11,7 +11,6 @@ export function renderPdfHtmlTemplate(
   const isLight = theme === 'light';
   const isMobile = viewMode === 'mobile';
 
-  // Highlight.js stylesheet choice
   const hljsStyle = isLight
     ? 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css'
     : 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css';

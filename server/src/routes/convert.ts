@@ -1,10 +1,10 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
-import { fetchSharedConversation } from '../services/fetcherService.js';
-import { convertMarkdownToHtml } from '../services/markdownService.js';
-import { renderPdfHtmlTemplate } from '../templates/pdfTemplate.js';
-import { generatePdfFromHtml } from '../services/pdfService.js';
-import { formatAutoTitle, sanitizeFileName } from '../services/titleService.js';
+import { fetchSharedConversation } from '../services/fetcherService';
+import { convertMarkdownToHtml } from '../services/markdownService';
+import { renderPdfHtmlTemplate } from '../templates/pdfTemplate';
+import { generatePdfFromHtml } from '../services/pdfService';
+import { formatAutoTitle, sanitizeFileName } from '../services/titleService';
 
 const router = Router();
 
@@ -77,7 +77,6 @@ router.post('/convert', async (req: Request, res: Response) => {
       day: 'numeric',
     });
 
-    // Generate HTML with chosen theme and viewMode
     const fullHtml = renderPdfHtmlTemplate(
       conversation,
       processedMessages,
@@ -86,9 +85,7 @@ router.post('/convert', async (req: Request, res: Response) => {
       parsed.viewMode
     );
 
-    // Render PDF with Puppeteer
     const pdfBuffer = await generatePdfFromHtml(fullHtml, finalTitle, parsed.viewMode);
-
     const fileName = sanitizeFileName(finalTitle);
 
     res.setHeader('Content-Type', 'application/pdf');

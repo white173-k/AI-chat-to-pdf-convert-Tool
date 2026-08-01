@@ -1,5 +1,5 @@
-import { getBrowser } from '../utils/browserPool.js';
-import { ChatMessage, SharedConversation } from '../types.js';
+import { getBrowser } from '../utils/browserPool';
+import { ChatMessage, SharedConversation } from '../types';
 
 export async function fetchChatGPTConversation(shareUrl: string, shareId: string): Promise<SharedConversation> {
   const browser = await getBrowser();
@@ -21,7 +21,6 @@ export async function fetchChatGPTConversation(shareUrl: string, shareId: string
     console.log(`[ChatGPT Fetcher] Navigating to ${shareUrl}`);
     await page.goto(shareUrl, { waitUntil: 'domcontentloaded' as const, timeout: 35000 });
 
-    // Wait a brief moment for dynamic hydration
     await new Promise((resolve) => setTimeout(resolve, 3500));
 
     const pageTitle = await page.title();
@@ -29,7 +28,6 @@ export async function fetchChatGPTConversation(shareUrl: string, shareId: string
       throw new Error('Cloudflare anti-bot verification was triggered by ChatGPT. Please try again in a few moments.');
     }
 
-    // Strategy 1: Window object / script tag extraction
     const extractedData = await page.evaluate(async (sId) => {
       const w = window as any;
 
@@ -49,7 +47,6 @@ export async function fetchChatGPTConversation(shareUrl: string, shareId: string
         }
       }
 
-      // Check script tags for inline JSON state
       const scripts = Array.from(document.querySelectorAll('script'));
       for (const s of scripts) {
         const text = s.textContent || '';
@@ -113,7 +110,6 @@ export async function fetchChatGPTConversation(shareUrl: string, shareId: string
       }
     }
 
-    // Strategy 2: DOM Scraping Fallback
     console.log('[ChatGPT Fetcher] Falling back to DOM parsing...');
     const domResult = await page.evaluate(() => {
       const titleEl = document.querySelector('h1') || document.querySelector('title');

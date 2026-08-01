@@ -1,5 +1,5 @@
-import { getBrowser } from '../utils/browserPool.js';
-import { ViewMode } from '../types.js';
+import { getBrowser } from '../utils/browserPool';
+import { ViewMode } from '../types';
 
 export async function generatePdfFromHtml(
   htmlContent: string,
@@ -13,7 +13,6 @@ export async function generatePdfFromHtml(
     const isMobile = viewMode === 'mobile';
     const isTablet = viewMode === 'tablet';
 
-    // 1. Set Viewport according to layout view mode
     if (isMobile) {
       await page.setViewport({ width: 390, height: 844, isMobile: true, deviceScaleFactor: 2 });
     } else if (isTablet) {
@@ -22,19 +21,14 @@ export async function generatePdfFromHtml(
       await page.setViewport({ width: 1920, height: 1080, deviceScaleFactor: 1 });
     }
 
-    // 2. Load HTML content
     await page.setContent(htmlContent, {
       waitUntil: 'domcontentloaded',
       timeout: 40000,
     });
 
-    // 3. Ensure web fonts are fully loaded
     await page.evaluateHandle('document.fonts.ready');
-
-    // 4. Emulate print media
     await page.emulateMediaType('print');
 
-    // 5. Generate PDF buffer
     const pdfBuffer = await page.pdf({
       format: 'A4',
       printBackground: true,

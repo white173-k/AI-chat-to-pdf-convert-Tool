@@ -1,10 +1,10 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { z } from 'zod';
-import { fetchSharedConversation } from '../server/src/services/fetcherService.js';
-import { convertMarkdownToHtml } from '../server/src/services/markdownService.js';
-import { renderPdfHtmlTemplate } from '../server/src/templates/pdfTemplate.js';
-import { generatePdfFromHtml } from '../server/src/services/pdfService.js';
-import { formatAutoTitle, sanitizeFileName } from '../server/src/services/titleService.js';
+import { fetchSharedConversation } from '../server/src/services/fetcherService';
+import { convertMarkdownToHtml } from '../server/src/services/markdownService';
+import { renderPdfHtmlTemplate } from '../server/src/templates/pdfTemplate';
+import { generatePdfFromHtml } from '../server/src/services/pdfService';
+import { formatAutoTitle, sanitizeFileName } from '../server/src/services/titleService';
 
 const RequestSchema = z.object({
   url: z.string().min(1, 'Share link URL is required'),

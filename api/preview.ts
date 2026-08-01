@@ -1,8 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { z } from 'zod';
-import { fetchSharedConversation } from '../server/src/services/fetcherService.js';
-import { convertMarkdownToHtml } from '../server/src/services/markdownService.js';
-import { formatAutoTitle, sanitizeFileName } from '../server/src/services/titleService.js';
+import { fetchSharedConversation } from '../server/src/services/fetcherService';
+import { convertMarkdownToHtml } from '../server/src/services/markdownService';
+import { formatAutoTitle, sanitizeFileName } from '../server/src/services/titleService';
 
 const RequestSchema = z.object({
   url: z.string().min(1, 'Share link URL is required'),
@@ -12,7 +12,6 @@ const RequestSchema = z.object({
 });
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // Set CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
