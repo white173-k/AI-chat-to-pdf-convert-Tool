@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: ai-chat-to-pdf-backend
+    env: docker
+    dockerfilePath: server/Dockerfile
+    region: oregon
+    plan: free
+    envVars:
+      - key: PORT
+        value: 5001
+      - key: PUPPETEER_EXECUTABLE_PATH
+        value: /usr/bin/chromium
