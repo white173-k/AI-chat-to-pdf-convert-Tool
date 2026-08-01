@@ -1,5 +1,5 @@
-import { getBrowser } from '../utils/browserPool';
-import { ChatMessage, SharedConversation } from '../types';
+import { getBrowser } from '../utils/browserPool.js';
+import { ChatMessage, SharedConversation } from '../types.js';
 
 export async function fetchChatGPTConversation(shareUrl: string, shareId: string): Promise<SharedConversation> {
   const browser = await getBrowser();

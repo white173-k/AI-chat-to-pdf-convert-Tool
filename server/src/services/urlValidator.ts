@@ -1,4 +1,4 @@
-import { SupportedPlatform } from '../types';
+import { SupportedPlatform } from '../types.js';
 
 export interface ValidatedUrl {
   url: string;

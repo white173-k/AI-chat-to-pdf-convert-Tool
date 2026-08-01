@@ -1,4 +1,4 @@
-import { SharedConversation, ChatMessage, AppTheme, ViewMode } from '../types';
+import { SharedConversation, ChatMessage, AppTheme, ViewMode } from '../types.js';
 
 export function renderPdfHtmlTemplate(
   conversation: SharedConversation,

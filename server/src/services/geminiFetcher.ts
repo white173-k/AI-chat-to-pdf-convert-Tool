@@ -1,6 +1,6 @@
 import * as cheerio from 'cheerio';
-import { getBrowser } from '../utils/browserPool';
-import { ChatMessage, SharedConversation } from '../types';
+import { getBrowser } from '../utils/browserPool.js';
+import { ChatMessage, SharedConversation } from '../types.js';
 
 export async function fetchGeminiConversation(shareUrl: string, shareId: string): Promise<SharedConversation> {
   console.log(`[Gemini Fetcher] Attempting HTTP fetch for ${shareUrl}`);

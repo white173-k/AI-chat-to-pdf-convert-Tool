@@ -1,5 +1,5 @@
-import { getBrowser } from '../utils/browserPool';
-import { ViewMode } from '../types';
+import { getBrowser } from '../utils/browserPool.js';
+import { ViewMode } from '../types.js';
 
 export async function generatePdfFromHtml(
   htmlContent: string,

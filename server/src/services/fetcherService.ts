@@ -1,7 +1,7 @@
-import { validateAndClassifyUrl } from './urlValidator';
-import { fetchChatGPTConversation } from './chatgptFetcher';
-import { fetchGeminiConversation } from './geminiFetcher';
-import { SharedConversation } from '../types';
+import { validateAndClassifyUrl } from './urlValidator.js';
+import { fetchChatGPTConversation } from './chatgptFetcher.js';
+import { fetchGeminiConversation } from './geminiFetcher.js';
+import { SharedConversation } from '../types.js';
 
 export async function fetchSharedConversation(rawUrl: string): Promise<SharedConversation> {
   const validated = validateAndClassifyUrl(rawUrl);
