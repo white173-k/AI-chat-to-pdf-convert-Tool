@@ -1,17 +1,11 @@
 {
   "version": 2,
-  "buildCommand": "npm run build",
+  "buildCommand": "npm run build:client",
   "outputDirectory": "client/dist",
   "rewrites": [
     {
-      "source": "/((?!api/).*)",
+      "source": "/(.*)",
       "destination": "/index.html"
     }
-  ],
-  "functions": {
-    "api/*.ts": {
-      "memory": 1024,
-      "maxDuration": 30
-    }
-  }
+  ]
 }
